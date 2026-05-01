@@ -85,3 +85,53 @@
 7. Код Apache Spark трансформации данных из снежинки/звезды в отчеты в Neo4j.
 8. Код Apache Spark трансформации данных из снежинки/звезды в отчеты в MongoDB.
 9. Код Apache Spark трансформации данных из снежинки/звезды в отчеты в Valkey.
+
+Инструкция по запуску:
+
+1.Запустить  контейнеры
+ ```
+   docker-compose up -d
+
+   ```
+Будут подняты:
+- PostgreSQL (порт 5432)
+- ClickHouse (порт 8123, 9000)
+- Apache Spark (контейнер lab2_spark)
+2.Проверка, что таблица mock_data создана и заполнена:
+```  
+docker exec -it lab2_postgres psql -U postgres -d lab2_db -c "SELECT COUNT(*) FROM mock_data;"
+```
+Будет выведено 10000 rows.
+3. Установка Python-библиотеки clickhouse-connect в Spark-контейнер
+```
+docker exec -it lab2_spark bash -c "mkdir -p /opt/spark/app/packages && pip install --target /opt/spark/app/packages clickhouse-connect==0.5.25"
+```
+4. Запуск ETL (построение звезды в PostgreSQL)
+```
+docker exec -it lab2_spark /opt/spark/bin/spark-submit --packages org.postgresql:postgresql:42.7.3 --conf spark.jars.ivy=/tmp /opt/spark/app/spark_etl.py
+```
+После завершения появится сообщение "ETL завершен"
+5.Проверка создания фактов и измерений в PostgreSQL
+```
+docker exec -it lab2_postgres psql -U postgres -d lab2_db -c "\dt"
+```
+Ожидается появление таблиц dim_country, dim_customer, fact_sale и др.
+6.Запуск создания витрин в ClickHouse
+```
+docker exec -it lab2_spark bash -c "PYTHONPATH=/opt/spark/app/packages /opt/spark/bin/spark-submit --packages org.postgresql:postgresql:42.7.3 --conf spark.jars.ivy=/tmp /opt/spark/app/spark_marts.py"
+```
+Будет выведено "Витрины готовы".
+7.Проверить витрины в ClickHouse
+7.1.
+```
+docker exec -it lab2_spark bash -c "PYTHONPATH=/opt/spark/app/packages python3 /opt/spark/app/results.py"
+```
+7.2.прямой SQL-запрос:
+```
+docker exec -it lab2_clickhouse clickhouse-client --query "SHOW TABLES"
+docker exec -it lab2_clickhouse clickhouse-client --query "SELECT * FROM mart_top_products LIMIT 5"
+```
+8.Очистка после проверки
+```
+docker-compose down -v
+```

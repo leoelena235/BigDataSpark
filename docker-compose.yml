@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: lab2_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: lab2_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d
+      - "./исходные данные:/data"
+
+  spark:
+    image: apache/spark:3.5.1
+    container_name: lab2_spark
+    depends_on:
+      - postgres
+      - clickhouse
+    volumes:
+      - ./:/opt/spark/app
+    working_dir: /opt/spark/app
+    command: tail -f /dev/null
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: lab2_clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
